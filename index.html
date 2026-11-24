@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IE 產線 Cycle Time 與生產指標分析工具</title>
+  <title>IE 產線分析與 KPI 互動儀表板（含平行工作站驗證）</title>
   <style>
     :root {
       --bg: #f4f7fb;
@@ -22,41 +22,47 @@
       background: var(--bg);
       color: var(--text);
       margin: 0;
-      padding: 24px;
+      padding: 20px;
       line-height: 1.5;
     }
     .container { max-width: 1180px; margin: 0 auto; }
-    h1 { font-size: 24px; margin: 0 0 6px; }
-    .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+    h1 { font-size: 22px; margin: 0 0 6px; }
+    .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
     .card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 20px;
+      padding: 18px 20px;
+      margin-bottom: 18px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      align-items: flex-end;
-    }
-    .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+    .field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
     .field label { font-weight: 600; color: var(--muted); }
     input[type="file"], select, input[type="number"] {
-      padding: 8px 12px;
+      padding: 8px 10px;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
       font-size: 14px;
       background: #fff;
     }
-    input[type="number"] { width: 120px; }
+    input[type="number"] { width: 125px; }
+    button.btn-sample {
+      padding: 9px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #0f766e;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.btn-sample:hover { background: #115e59; }
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 14px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
     }
     .kpi {
       background: #f8fafc;
@@ -65,12 +71,39 @@
       padding: 14px 16px;
     }
     .kpi .label { font-size: 13px; color: var(--muted); }
-    .kpi .value { font-size: 24px; font-weight: 700; margin: 4px 0; color: var(--primary); }
+    .kpi .value { font-size: 23px; font-weight: 700; margin: 4px 0; color: var(--primary); }
     .kpi .note { font-size: 12px; color: var(--muted); }
     .kpi.bottleneck .value { color: var(--danger); }
+    .flow-box {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      background: #f8fafc;
+      border-radius: 10px;
+      border: 1px dashed #cbd5e1;
+      font-size: 13px;
+    }
+    .flow-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .flow-node {
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: #dbeafe;
+      color: #1e40af;
+      font-weight: 700;
+      text-align: center;
+    }
+    .flow-node.parallel { background: #dcfce7; color: #166534; }
+    .flow-node.bn { background: #fee2e2; color: #991b1b; }
+    .flow-arrow { font-size: 18px; color: var(--muted); font-weight: bold; }
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
     th, td {
-      padding: 10px 12px;
+      padding: 9px 10px;
       border-bottom: 1px solid var(--border);
       text-align: right;
     }
@@ -83,20 +116,26 @@
       padding: 2px 7px;
       border-radius: 999px;
       font-weight: 600;
-      margin-left: 6px;
+      margin-left: 4px;
     }
     .badge-red { background: #fee2e2; color: var(--danger); }
-    .badge-blue { background: #dbeafe; color: var(--primary); }
+    .badge-green { background: #dcfce7; color: var(--ok); }
+    .badge-warn { background: #fef3c7; color: var(--warn); }
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+      gap: 18px;
+    }
     .chart-wrap { width: 100%; overflow-x: auto; }
     canvas { display: block; max-width: 100%; }
     .hidden { display: none; }
-    .section-title { font-size: 17px; font-weight: 700; margin: 0 0 12px; }
+    .section-title { font-size: 16px; font-weight: 700; margin: 0 0 12px; }
   </style>
 </head>
 <body>
 <div class="container">
-  <h1>IE 生產線分析與 KPI 互動儀表板</h1>
-  <div class="subtitle">支援步驟 3～5（各站與整線 Cycle Time、閒置時間）及課後練習（6 大生產指標與 Bar Chart）</div>
+  <h1>IE 產線分析與 6 大生產指標儀表板</h1>
+  <div class="subtitle">支援串聯與平行工作站（ST01、ST02 平行 → ST03 → ST04）、Cycle Time、閒置時間與雙 Bar Chart</div>
 
   <div class="card">
     <div class="controls">
@@ -105,116 +144,127 @@
         <input type="file" id="csvFile" accept=".csv" />
       </div>
       <div class="field">
-        <label>2. 篩選組別 (group_id)</label>
+        <label>2. 篩選組別</label>
         <select id="groupFilter" disabled><option value="ALL">全部</option></select>
       </div>
       <div class="field">
-        <label>3. 篩選場次 (product_id 前綴)</label>
+        <label>3. 篩選場次</label>
         <select id="batchFilter" disabled><option value="ALL">全部</option></select>
       </div>
       <div class="field">
-        <label>目標產量 (件，計算達成率用)</label>
-        <input type="number" id="targetOutput" value="4" min="1" />
+        <label>目標產量 (件)</label>
+        <input type="number" id="targetOutput" value="6" min="1" />
       </div>
       <div class="field">
-        <label>單件標準工時 (秒，計算準時率用)</label>
-        <input type="number" id="stdCycleTime" value="60" min="1" />
+        <label>單件總標準工時 (秒)</label>
+        <input type="number" id="stdProductTime" value="95" min="1" />
+      </div>
+      <div class="field">
+        <label>沒有檔案？先下載練習範例</label>
+        <button class="btn-sample" type="button" onclick="downloadSampleCSV()">⬇ 下載平行工作站範例 CSV</button>
       </div>
     </div>
   </div>
 
   <div id="resultArea" class="hidden">
-    <!-- 整線摘要 -->
-    <div class="summary-grid">
-      <div class="kpi">
-        <div class="label">整條生產線 Cycle Time</div>
-        <div class="value" id="lineCT">-</div>
-        <div class="note" id="lineCTNote">-</div>
+    <!-- 自動偵測產線架構 -->
+    <div class="card">
+      <div class="section-title">偵測到的生產線架構圖</div>
+      <div class="flow-box" id="flowDiagram"></div>
+    </div>
+
+    <!-- 課後練習 6 大指標 -->
+    <div class="card">
+      <div class="section-title">6 大生產指標總覽（課後練習 1 & 2）</div>
+      <div class="summary-grid" style="margin-bottom:0;">
+        <div class="kpi">
+          <div class="label">1. Production Output (生產產量)</div>
+          <div class="value" id="kpiOutput">-</div>
+          <div class="note" id="kpiOutputNote">-</div>
+        </div>
+        <div class="kpi">
+          <div class="label">2. Production Attainment (達成率)</div>
+          <div class="value" id="kpiAttain">-</div>
+          <div class="note" id="kpiAttainNote">-</div>
+        </div>
+        <div class="kpi">
+          <div class="label">3. On-Time Completion (準時完成率)</div>
+          <div class="value" id="kpiOnTime">-</div>
+          <div class="note" id="kpiOnTimeNote">單件總作業秒數 ≤ 標準工時</div>
+        </div>
+        <div class="kpi">
+          <div class="label">4. First Pass Yield (首次通過率)</div>
+          <div class="value" id="kpiFPY">-</div>
+          <div class="note" id="kpiFPYNote">一次過關無重工/不良之產品比例</div>
+        </div>
+        <div class="kpi bottleneck">
+          <div class="label">5. Cycle Time (整線週期時間)</div>
+          <div class="value" id="kpiCT">-</div>
+          <div class="note" id="kpiCTNote">-</div>
+        </div>
+        <div class="kpi">
+          <div class="label">6. Employee Productivity (員工生產力)</div>
+          <div class="value" id="kpiProd">-</div>
+          <div class="note" id="kpiProdNote">-</div>
+        </div>
       </div>
-      <div class="kpi bottleneck">
-        <div class="label">產線瓶頸站 (Max Station CT)</div>
-        <div class="value" id="bottleneckStation">-</div>
-        <div class="note" id="bottleneckNote">-</div>
+    </div>
+
+    <!-- 雙 Bar Chart -->
+    <div class="charts-grid">
+      <div class="card">
+        <div class="section-title">Bar Chart 1：各站平均 Cycle Time 與閒置時間 (秒)</div>
+        <div class="chart-wrap">
+          <canvas id="stationBarChart" width="540" height="300"></canvas>
+        </div>
       </div>
-      <div class="kpi">
-        <div class="label">活動總耗時 (首開工至末完工)</div>
-        <div class="value" id="totalElapsed">-</div>
-        <div class="note" id="timeSpanNote">-</div>
-      </div>
-      <div class="kpi">
-        <div class="label">終點站產出件數 (Output)</div>
-        <div class="value" id="finalOutput">-</div>
-        <div class="note" id="finalStationNote">-</div>
+      <div class="card">
+        <div class="section-title">Bar Chart 2：生產績效指標百分比 (%)</div>
+        <div class="chart-wrap">
+          <canvas id="kpiBarChart" width="540" height="300"></canvas>
+        </div>
       </div>
     </div>
 
     <!-- 各站明細表 -->
     <div class="card">
-      <div class="section-title">各工作站 Cycle Time 與閒置時間分析</div>
+      <div class="section-title">各工作站詳細數據（步驟 3 & 5 驗算對照）</div>
       <div style="overflow-x:auto;">
         <table>
           <thead>
             <tr>
               <th>工作站</th>
-              <th>完工筆數</th>
+              <th>性質</th>
+              <th>筆數</th>
               <th>總作業時間 (秒)</th>
               <th>平均 Cycle Time (秒)</th>
-              <th>整線週期內閒置時間 (秒)*</th>
-              <th>站內換件閒置 (秒)**</th>
+              <th>整線週期閒置 (秒)</th>
+              <th>換件閒置 (秒)</th>
               <th>稼動率 (%)</th>
             </tr>
           </thead>
           <tbody id="stationTableBody"></tbody>
         </table>
       </div>
-      <div class="subtitle" style="margin:10px 0 0; font-size:12px;">
-        *整線週期內閒置時間 ＝ 活動總耗時 − 該站總作業時間（含開工前等料＋換件空檔）。<br/>
-        **站內換件閒置 ＝ (該站末件完工 − 該站首件開工) − 該站總作業時間。
-      </div>
     </div>
 
-    <!-- Bar Chart -->
+    <!-- 逐件產品驗算表 -->
     <div class="card">
-      <div class="section-title">Bar Chart：各站平均 Cycle Time 與作業／閒置比較</div>
-      <div class="chart-wrap">
-        <canvas id="barChart" width="1080" height="340"></canvas>
-      </div>
-    </div>
-
-    <!-- 課後練習 6 大指標 -->
-    <div class="card">
-      <div class="section-title">課後練習：6 大生產指標總覽</div>
-      <div class="summary-grid" style="margin-bottom:0;">
-        <div class="kpi">
-          <div class="label">1. Production Output (生產產量)</div>
-          <div class="value" id="kpiOutput">-</div>
-          <div class="note">終點站完工產品數</div>
-        </div>
-        <div class="kpi">
-          <div class="label">2. Production Attainment (達成率)</div>
-          <div class="value" id="kpiAttain">-</div>
-          <div class="note">實際產量 ÷ 目標產量</div>
-        </div>
-        <div class="kpi">
-          <div class="label">3. On-Time Completion Rate (準時完成率)</div>
-          <div class="value" id="kpiOnTime">-</div>
-          <div class="note">各筆作業秒數 ≤ 標準工時 之比例</div>
-        </div>
-        <div class="kpi">
-          <div class="label">4. First Pass Yield (首次通過率)</div>
-          <div class="value" id="kpiFPY">-</div>
-          <div class="note">狀態為 COMPLETED 且無重複重工比例</div>
-        </div>
-        <div class="kpi">
-          <div class="label">5. Cycle Time (整線週期時間)</div>
-          <div class="value" id="kpiCT">-</div>
-          <div class="note">平均每產出一件所需整線時間</div>
-        </div>
-        <div class="kpi">
-          <div class="label">6. Employee Productivity (員工生產力)</div>
-          <div class="value" id="kpiProd">-</div>
-          <div class="note" id="kpiProdNote">假設每站 1 人之平均產出</div>
-        </div>
+      <div class="section-title">逐件產品驗算明細（確認準時完成與首次通過率）</div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>產品編號</th>
+              <th>經過站數/紀錄數</th>
+              <th>單件累計作業秒數</th>
+              <th>流過總耗時 (秒)</th>
+              <th>準時狀態 (≤ 標準工時)</th>
+              <th>首次通過 (FPY)</th>
+            </tr>
+          </thead>
+          <tbody id="productTableBody"></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -223,7 +273,47 @@
 <script>
   let rawRecords = [];
 
-  // 解析 CSV（支援引號、UTF-8 BOM、CRLF）
+  // 產生平行工作站練習 CSV（ST01, ST02 平行 -> ST03 -> ST04）
+  function downloadSampleCSV() {
+    const csvLines = [
+      'id,group_id,product_id,station_id,part_no,wip_before_start,start_time,finish_time,duration_sec,wip_after_finish,status',
+      // P01: total work 80s (<=95), FPY OK
+      '1,G_PARALLEL,PRACTICE-P01,ST01,PART-A,9999,2026-11-24T08:00:00Z,2026-11-24T08:00:20Z,20,1,COMPLETED',
+      '2,G_PARALLEL,PRACTICE-P01,ST02,PART-B,9999,2026-11-24T08:00:00Z,2026-11-24T08:00:25Z,25,1,COMPLETED',
+      '3,G_PARALLEL,PRACTICE-P01,ST03,ASM-03,1,2026-11-24T08:00:26Z,2026-11-24T08:00:46Z,20,1,COMPLETED',
+      '4,G_PARALLEL,PRACTICE-P01,ST04,FINAL-04,1,2026-11-24T08:00:47Z,2026-11-24T08:01:02Z,15,1,COMPLETED',
+      // P02: total work 81s (<=95), FPY OK
+      '5,G_PARALLEL,PRACTICE-P02,ST01,PART-A,9999,2026-11-24T08:00:22Z,2026-11-24T08:00:40Z,18,2,COMPLETED',
+      '6,G_PARALLEL,PRACTICE-P02,ST02,PART-B,9999,2026-11-24T08:00:27Z,2026-11-24T08:00:55Z,28,2,COMPLETED',
+      '7,G_PARALLEL,PRACTICE-P02,ST03,ASM-03,1,2026-11-24T08:00:56Z,2026-11-24T08:01:16Z,20,2,COMPLETED',
+      '8,G_PARALLEL,PRACTICE-P02,ST04,FINAL-04,1,2026-11-24T08:01:17Z,2026-11-24T08:01:32Z,15,2,COMPLETED',
+      // P03: total work 103s (>95 超時), 且 ST03 重工 (FPY NG)
+      '9,G_PARALLEL,PRACTICE-P03,ST01,PART-A,9999,2026-11-24T08:00:42Z,2026-11-24T08:01:02Z,20,3,COMPLETED',
+      '10,G_PARALLEL,PRACTICE-P03,ST02,PART-B,9999,2026-11-24T08:00:57Z,2026-11-24T08:01:30Z,33,3,COMPLETED',
+      '11,G_PARALLEL,PRACTICE-P03,ST03,ASM-03,1,2026-11-24T08:01:31Z,2026-11-24T08:01:51Z,20,2,REWORK',
+      '12,G_PARALLEL,PRACTICE-P03,ST03,ASM-03,1,2026-11-24T08:01:52Z,2026-11-24T08:02:02Z,10,3,COMPLETED',
+      '13,G_PARALLEL,PRACTICE-P03,ST04,FINAL-04,1,2026-11-24T08:02:03Z,2026-11-24T08:02:23Z,20,3,COMPLETED',
+      // P04: total work 80s (<=95), FPY OK
+      '14,G_PARALLEL,PRACTICE-P04,ST01,PART-A,9999,2026-11-24T08:01:05Z,2026-11-24T08:01:25Z,20,4,COMPLETED',
+      '15,G_PARALLEL,PRACTICE-P04,ST02,PART-B,9999,2026-11-24T08:01:32Z,2026-11-24T08:01:57Z,25,4,COMPLETED',
+      '16,G_PARALLEL,PRACTICE-P04,ST03,ASM-03,1,2026-11-24T08:02:04Z,2026-11-24T08:02:24Z,20,4,COMPLETED',
+      '17,G_PARALLEL,PRACTICE-P04,ST04,FINAL-04,1,2026-11-24T08:02:25Z,2026-11-24T08:02:40Z,15,4,COMPLETED',
+      // P05: total work 97s (>95 超時), FPY OK
+      '18,G_PARALLEL,PRACTICE-P05,ST01,PART-A,9999,2026-11-24T08:01:27Z,2026-11-24T08:01:49Z,22,5,COMPLETED',
+      '19,G_PARALLEL,PRACTICE-P05,ST02,PART-B,9999,2026-11-24T08:01:59Z,2026-11-24T08:02:29Z,30,5,COMPLETED',
+      '20,G_PARALLEL,PRACTICE-P05,ST03,ASM-03,1,2026-11-24T08:02:30Z,2026-11-24T08:02:55Z,25,5,COMPLETED',
+      '21,G_PARALLEL,PRACTICE-P05,ST04,FINAL-04,1,2026-11-24T08:02:56Z,2026-11-24T08:03:16Z,20,5,COMPLETED'
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvLines], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'parallel_station_sample.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function parseCSV(text) {
     text = text.replace(/^\uFEFF/, '');
     const rows = [];
@@ -232,8 +322,8 @@
       const c = text[i], next = text[i + 1];
       if (inQuotes) {
         if (c === '"' && next === '"') { val += '"'; i++; }
-        else if (c === '"') { inQuotes = false; }
-        else { val += c; }
+        else if (c === '"') inQuotes = false;
+        else val += c;
       } else {
         if (c === '"') inQuotes = true;
         else if (c === ',') { cur.push(val.trim()); val = ''; }
@@ -292,10 +382,10 @@
     const bSel = document.getElementById('batchFilter');
     bSel.innerHTML = '<option value="ALL">全部場次</option>' + batches.map(b => `<option value="${b}">${b}</option>`).join('');
     bSel.disabled = false;
-    if (batches.length >= 1) bSel.value = batches[batches.length - 1]; // 預設選最新場次
+    if (batches.length >= 1) bSel.value = batches[batches.length - 1];
   }
 
-  ['groupFilter', 'batchFilter', 'targetOutput', 'stdCycleTime'].forEach(id => {
+  ['groupFilter', 'batchFilter', 'targetOutput', 'stdProductTime'].forEach(id => {
     document.getElementById(id).addEventListener('change', analyze);
     document.getElementById(id).addEventListener('input', analyze);
   });
@@ -305,7 +395,7 @@
     const gVal = document.getElementById('groupFilter').value;
     const bVal = document.getElementById('batchFilter').value;
     const targetOut = Math.max(1, Number(document.getElementById('targetOutput').value) || 1);
-    const stdCT = Math.max(1, Number(document.getElementById('stdCycleTime').value) || 1);
+    const stdTime = Math.max(1, Number(document.getElementById('stdProductTime').value) || 1);
 
     const data = rawRecords.filter(r =>
       (gVal === 'ALL' || r.group_id === gVal) &&
@@ -315,19 +405,17 @@
 
     document.getElementById('resultArea').classList.remove('hidden');
 
-    // 整線時間跨度
     const starts = data.map(r => Date.parse(r.start_time)).filter(t => !isNaN(t));
     const finishes = data.map(r => Date.parse(r.finish_time)).filter(t => !isNaN(t));
     const minStart = Math.min(...starts);
     const maxFinish = Math.max(...finishes);
     const totalElapsed = Math.max(0.1, (maxFinish - minStart) / 1000);
 
-    // 依工站分組統計
+    // 依工作站統計
     const stationMap = {};
     data.forEach(r => {
-      const st = r.station_id;
-      if (!stationMap[st]) stationMap[st] = [];
-      stationMap[st].push(r);
+      if (!stationMap[r.station_id]) stationMap[r.station_id] = [];
+      stationMap[r.station_id].push(r);
     });
     const stations = Object.keys(stationMap).sort();
 
@@ -342,38 +430,91 @@
       const innerIdle = Math.max(0, stSpan - workSum);
       const lineIdle = Math.max(0, totalElapsed - workSum);
       const util = (workSum / totalElapsed) * 100;
-      const isParallelStart = rows.some(r => String(r.wip_before_start) === '9999');
-      return { st, count, workSum, avgCT, innerIdle, lineIdle, util, isParallelStart };
+      const isParallel = rows.some(r => String(r.wip_before_start) === '9999');
+      return { st, count, workSum, avgCT, innerIdle, lineIdle, util, isParallel };
     });
 
-    // 瓶頸站 & 終點站產出
     const bottleneck = stats.reduce((a, b) => (b.avgCT > a.avgCT ? b : a), stats[0]);
     const finalStation = stations[stations.length - 1];
-    const finalRows = stationMap[finalStation].filter(r => !r.status || r.status.toUpperCase() === 'COMPLETED');
-    const outputCount = new Set(finalRows.map(r => r.product_id)).size || finalRows.length;
+
+    // 依產品分組計算 (Output, On-Time, FPY)
+    const prodMap = {};
+    data.forEach(r => {
+      if (!prodMap[r.product_id]) prodMap[r.product_id] = [];
+      prodMap[r.product_id].push(r);
+    });
+    const products = Object.keys(prodMap).sort();
+
+    const prodStats = products.map(pid => {
+      const rows = prodMap[pid];
+      const workSec = rows.reduce((s, r) => s + (parseFloat(r.duration_sec) || 0), 0);
+      const pStarts = rows.map(r => Date.parse(r.start_time)).filter(t => !isNaN(t));
+      const pFinishes = rows.map(r => Date.parse(r.finish_time)).filter(t => !isNaN(t));
+      const flowSec = pStarts.length && pFinishes.length ? (Math.max(...pFinishes) - Math.min(...pStarts)) / 1000 : workSec;
+      const reachedFinal = rows.some(r => r.station_id === finalStation && (!r.status || r.status.toUpperCase() === 'COMPLETED'));
+      const uniqueStations = new Set(rows.map(r => r.station_id)).size;
+      const allCompleted = rows.every(r => !r.status || r.status.toUpperCase() === 'COMPLETED');
+      const isFPY = reachedFinal && allCompleted && uniqueStations === rows.length;
+      const isOnTime = reachedFinal && workSec <= stdTime;
+      return { pid, rowCount: rows.length, uniqueStations, workSec, flowSec, reachedFinal, isFPY, isOnTime };
+    });
+
+    const outputCount = prodStats.filter(p => p.reachedFinal).length;
+    const onTimeCount = prodStats.filter(p => p.isOnTime).length;
+    const fpyCount = prodStats.filter(p => p.isFPY).length;
+
+    const attainment = (outputCount / targetOut) * 100;
+    const onTimeRate = (onTimeCount / Math.max(1, outputCount)) * 100;
+    const fpyRate = (fpyCount / Math.max(1, products.length)) * 100;
     const lineCT = totalElapsed / Math.max(1, outputCount);
+    const prodPerEmp = outputCount / stats.length;
+    const prodPerHr = outputCount / (stats.length * (totalElapsed / 3600));
+    const avgUtil = stats.reduce((s, a) => s + a.util, 0) / stats.length;
 
-    // 更新摘要卡
-    document.getElementById('lineCT').textContent = `${lineCT.toFixed(1)} 秒/件`;
-    document.getElementById('lineCTNote').textContent = `${totalElapsed.toFixed(1)} 秒 ÷ ${outputCount} 件`;
-    document.getElementById('bottleneckStation').textContent = `${bottleneck.st} (${bottleneck.avgCT.toFixed(1)} 秒)`;
-    document.getElementById('bottleneckNote').textContent = `各站平均 Cycle Time 最大值`;
-    document.getElementById('totalElapsed').textContent = `${totalElapsed.toFixed(1)} 秒`;
-    document.getElementById('timeSpanNote').textContent = `${new Date(minStart).toLocaleTimeString()} ~ ${new Date(maxFinish).toLocaleTimeString()}`;
-    document.getElementById('finalOutput').textContent = `${outputCount} 件`;
-    document.getElementById('finalStationNote').textContent = `終點站 ${finalStation} 完工統計`;
+    // 渲染架構圖
+    const parallelNodes = stats.filter(s => s.isParallel);
+    const serialNodes = stats.filter(s => !s.isParallel);
+    const flowEl = document.getElementById('flowDiagram');
+    let flowHTML = '';
+    if (parallelNodes.length > 1) {
+      flowHTML += `<div class="flow-group">` + parallelNodes.map(n =>
+        `<div class="flow-node parallel ${n.st === bottleneck.st ? 'bn' : ''}">${n.st} (平行起點 · ${n.avgCT.toFixed(1)}s)</div>`
+      ).join('') + `</div>`;
+      if (serialNodes.length > 0) flowHTML += `<div class="flow-arrow">──▶</div>`;
+    } else {
+      serialNodes.unshift(...parallelNodes);
+    }
+    flowHTML += serialNodes.map((n, idx) =>
+      `${idx > 0 ? '<div class="flow-arrow">→</div>' : ''}<div class="flow-node ${n.st === bottleneck.st ? 'bn' : ''}">${n.st} (${n.avgCT.toFixed(1)}s)</div>`
+    ).join('');
+    flowEl.innerHTML = flowHTML;
 
-    // 渲染表格
-    const tbody = document.getElementById('stationTableBody');
-    tbody.innerHTML = stats.map(s => {
+    // 更新 6 大指標
+    document.getElementById('kpiOutput').textContent = `${outputCount} 件`;
+    document.getElementById('kpiOutputNote').textContent = `終點站 ${finalStation} 完工數量`;
+
+    document.getElementById('kpiAttain').textContent = `${attainment.toFixed(1)}%`;
+    document.getElementById('kpiAttainNote').textContent = `${outputCount} 件 ÷ 目標 ${targetOut} 件`;
+
+    document.getElementById('kpiOnTime').textContent = `${onTimeRate.toFixed(1)}%`;
+    document.getElementById('kpiOnTimeNote').textContent = `${onTimeCount} / ${outputCount} 件 ≤ ${stdTime} 秒`;
+
+    document.getElementById('kpiFPY').textContent = `${fpyRate.toFixed(1)}%`;
+    document.getElementById('kpiFPYNote').textContent = `${fpyCount} / ${products.length} 件一次過關`;
+
+    document.getElementById('kpiCT').textContent = `${lineCT.toFixed(1)} 秒/件`;
+    document.getElementById('kpiCTNote').textContent = `總耗時 ${totalElapsed.toFixed(1)}s ÷ ${outputCount} 件 (瓶頸 ${bottleneck.st})`;
+
+    document.getElementById('kpiProd').textContent = `${prodPerEmp.toFixed(2)} 件/人`;
+    document.getElementById('kpiProdNote').textContent = `${stats.length} 站(${stats.length}人) · 約 ${prodPerHr.toFixed(1)} 件/人·小時`;
+
+    // 渲染各站表格
+    document.getElementById('stationTableBody').innerHTML = stats.map(s => {
       const isBN = s.st === bottleneck.st;
       return `
         <tr class="${isBN ? 'is-bottleneck' : ''}">
-          <td>
-            <strong>${s.st}</strong>
-            ${isBN ? '<span class="badge badge-red">瓶頸站</span>' : ''}
-            ${s.isParallelStart ? '<span class="badge badge-blue">起點/平行站</span>' : ''}
-          </td>
+          <td><strong>${s.st}</strong> ${isBN ? '<span class="badge badge-red">瓶頸站</span>' : ''}</td>
+          <td>${s.isParallel ? '平行起點站' : '串聯站'}</td>
           <td>${s.count}</td>
           <td>${s.workSum.toFixed(1)}</td>
           <td><strong>${s.avgCT.toFixed(1)}</strong></td>
@@ -384,88 +525,103 @@
       `;
     }).join('');
 
-    // 6 大指標
-    const onTimeCount = data.filter(r => (parseFloat(r.duration_sec) || 0) <= stdCT).length;
-    const onTimeRate = (onTimeCount / data.length) * 100;
-    const completedRows = data.filter(r => !r.status || r.status.toUpperCase() === 'COMPLETED');
-    const uniquePairs = new Set(data.map(r => `${r.product_id}__${r.station_id}`)).size;
-    const fpy = (Math.min(completedRows.length, uniquePairs) / data.length) * 100;
-    const attainment = (outputCount / targetOut) * 100;
-    const productivity = outputCount / stats.length;
+    // 渲染逐件產品驗算表
+    document.getElementById('productTableBody').innerHTML = prodStats.map(p => `
+      <tr>
+        <td><strong>${p.pid}</strong></td>
+        <td>${p.uniqueStations} 站 / ${p.rowCount} 筆</td>
+        <td>${p.workSec.toFixed(1)} 秒</td>
+        <td>${p.flowSec.toFixed(1)} 秒</td>
+        <td>${p.isOnTime ? '<span class="badge badge-green">準時</span>' : '<span class="badge badge-warn">超時</span>'}</td>
+        <td>${p.isFPY ? '<span class="badge badge-green">一次通過</span>' : '<span class="badge badge-red">曾重工/未過</span>'}</td>
+      </tr>
+    `).join('');
 
-    document.getElementById('kpiOutput').textContent = `${outputCount} 件`;
-    document.getElementById('kpiAttain').textContent = `${attainment.toFixed(1)}%`;
-    document.getElementById('kpiOnTime').textContent = `${onTimeRate.toFixed(1)}%`;
-    document.getElementById('kpiFPY').textContent = `${fpy.toFixed(1)}%`;
-    document.getElementById('kpiCT').textContent = `${lineCT.toFixed(1)} 秒`;
-    document.getElementById('kpiProd').textContent = `${productivity.toFixed(2)} 件/人`;
-    document.getElementById('kpiProdNote').textContent = `共 ${stats.length} 站（假設每站 1 人）`;
-
-    drawBarChart(stats, bottleneck.st);
+    drawStationBarChart(stats, bottleneck.st);
+    drawKpiBarChart([
+      { label: '達成率', val: attainment, color: '#2563eb' },
+      { label: '準時完成率', val: onTimeRate, color: '#0d9488' },
+      { label: '首次通過率', val: fpyRate, color: '#16a34a' },
+      { label: '平均稼動率', val: avgUtil, color: '#d97706' }
+    ]);
   }
 
-  function drawBarChart(stats, bottleneckSt) {
-    const canvas = document.getElementById('barChart');
+  function drawStationBarChart(stats, bottleneckSt) {
+    const canvas = document.getElementById('stationBarChart');
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
     ctx.clearRect(0, 0, W, H);
-
-    const pad = { top: 36, right: 20, bottom: 48, left: 60 };
+    const pad = { top: 34, right: 16, bottom: 40, left: 46 };
     const chartW = W - pad.left - pad.right;
     const chartH = H - pad.top - pad.bottom;
-    const maxVal = Math.max(...stats.map(s => Math.max(s.avgCT, s.innerIdle / s.count)), 10) * 1.15;
+    const maxVal = Math.max(...stats.map(s => Math.max(s.avgCT, s.innerIdle / s.count)), 10) * 1.18;
 
-    // 格線與 Y 軸
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.fillStyle = '#64748b';
-    ctx.font = '12px sans-serif';
-    ctx.textAlign = 'right';
-    for (let i = 0; i <= 5; i++) {
-      const y = pad.top + chartH - (chartH * i / 5);
-      const v = (maxVal * i / 5).toFixed(0);
+    ctx.strokeStyle = '#e2e8f0'; ctx.fillStyle = '#64748b'; ctx.font = '12px sans-serif'; ctx.textAlign = 'right';
+    for (let i = 0; i <= 4; i++) {
+      const y = pad.top + chartH - (chartH * i / 4);
       ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
-      ctx.fillText(`${v}s`, pad.left - 8, y + 4);
+      ctx.fillText((maxVal * i / 4).toFixed(0) + 's', pad.left - 6, y + 4);
     }
 
-    // 圖例
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#2563eb'; ctx.fillRect(pad.left, 10, 14, 14);
-    ctx.fillStyle = '#1e293b'; ctx.fillText('平均 Cycle Time (秒)', pad.left + 20, 22);
-    ctx.fillStyle = '#dc2626'; ctx.fillRect(pad.left + 170, 10, 14, 14);
-    ctx.fillStyle = '#1e293b'; ctx.fillText('瓶頸站 Cycle Time', pad.left + 190, 22);
-    ctx.fillStyle = '#f59e0b'; ctx.fillRect(pad.left + 335, 10, 14, 14);
-    ctx.fillStyle = '#1e293b'; ctx.fillText('平均換件閒置 (秒)', pad.left + 355, 22);
+    ctx.fillStyle = '#2563eb'; ctx.fillRect(pad.left, 8, 12, 12);
+    ctx.fillStyle = '#1e293b'; ctx.fillText('平均 CT', pad.left + 16, 19);
+    ctx.fillStyle = '#dc2626'; ctx.fillRect(pad.left + 85, 8, 12, 12);
+    ctx.fillStyle = '#1e293b'; ctx.fillText('瓶頸站', pad.left + 101, 19);
+    ctx.fillStyle = '#f59e0b'; ctx.fillRect(pad.left + 160, 8, 12, 12);
+    ctx.fillStyle = '#1e293b'; ctx.fillText('平均換件閒置', pad.left + 176, 19);
 
     const groupW = chartW / stats.length;
-    const barW = Math.min(34, groupW * 0.34);
-
+    const barW = Math.min(26, groupW * 0.34);
     stats.forEach((s, idx) => {
       const cx = pad.left + idx * groupW + groupW / 2;
-      const avgIdle = s.innerIdle / s.count;
-
-      // Bar 1: avgCT
       const h1 = (s.avgCT / maxVal) * chartH;
-      const x1 = cx - barW - 2;
-      const y1 = pad.top + chartH - h1;
       ctx.fillStyle = s.st === bottleneckSt ? '#dc2626' : '#2563eb';
-      ctx.fillRect(x1, y1, barW, h1);
+      ctx.fillRect(cx - barW - 2, pad.top + chartH - h1, barW, h1);
       ctx.fillStyle = '#1e293b'; ctx.textAlign = 'center';
-      ctx.fillText(s.avgCT.toFixed(1), x1 + barW / 2, y1 - 5);
+      ctx.fillText(s.avgCT.toFixed(1), cx - barW / 2 - 2, pad.top + chartH - h1 - 4);
 
-      // Bar 2: avgIdle
+      const avgIdle = s.innerIdle / s.count;
       const h2 = (avgIdle / maxVal) * chartH;
-      const x2 = cx + 2;
-      const y2 = pad.top + chartH - h2;
       ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(x2, y2, barW, h2);
+      ctx.fillRect(cx + 2, pad.top + chartH - h2, barW, h2);
       ctx.fillStyle = '#64748b';
-      ctx.fillText(avgIdle.toFixed(1), x2 + barW / 2, y2 - 5);
+      ctx.fillText(avgIdle.toFixed(1), cx + barW / 2 + 2, pad.top + chartH - h2 - 4);
 
-      // X label
-      ctx.fillStyle = '#1e293b';
-      ctx.font = 'bold 13px sans-serif';
-      ctx.fillText(s.st, cx, H - 18);
+      ctx.fillStyle = '#1e293b'; ctx.font = 'bold 12px sans-serif';
+      ctx.fillText(s.st, cx, H - 14);
       ctx.font = '12px sans-serif';
+    });
+  }
+
+  function drawKpiBarChart(items) {
+    const canvas = document.getElementById('kpiBarChart');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    const pad = { top: 30, right: 16, bottom: 40, left: 46 };
+    const chartW = W - pad.left - pad.right;
+    const chartH = H - pad.top - pad.bottom;
+    const maxVal = Math.max(100, ...items.map(i => i.val)) * 1.1;
+
+    ctx.strokeStyle = '#e2e8f0'; ctx.fillStyle = '#64748b'; ctx.font = '12px sans-serif'; ctx.textAlign = 'right';
+    for (let i = 0; i <= 4; i++) {
+      const y = pad.top + chartH - (chartH * i / 4);
+      ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+      ctx.fillText((maxVal * i / 4).toFixed(0) + '%', pad.left - 6, y + 4);
+    }
+
+    const groupW = chartW / items.length;
+    const barW = Math.min(48, groupW * 0.45);
+    items.forEach((item, idx) => {
+      const cx = pad.left + idx * groupW + groupW / 2;
+      const h = (item.val / maxVal) * chartH;
+      ctx.fillStyle = item.color;
+      ctx.fillRect(cx - barW / 2, pad.top + chartH - h, barW, h);
+      ctx.fillStyle = '#1e293b'; ctx.textAlign = 'center'; ctx.font = 'bold 12px sans-serif';
+      ctx.fillText(item.val.toFixed(1) + '%', cx, pad.top + chartH - h - 6);
+      ctx.font = '12px sans-serif';
+      ctx.fillText(item.label, cx, H - 14);
     });
   }
 </script>
